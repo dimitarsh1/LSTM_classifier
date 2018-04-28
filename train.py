@@ -19,10 +19,12 @@ torch.set_num_threads(8)
 torch.manual_seed(1)
 random.seed(1)
 
-# torch.cuda.set_device(args.gpu)
+cudnn.benchmark = True
+torch.cuda.set_device(args.gpu)
+
 def prepare_sequence(seq, to_idx):
     idxs = [to_idx[w] for w in seq]
-    tensor = torch.LongTensor(idxs)
+    tensor = torch.cuda.LongTensor(idxs)
     return autograd.Variable(tensor)
     
 def get_accuracy(truth, pred):
@@ -37,16 +39,14 @@ def train(train_data, test_data, dev_data, vocabulary_to_idx, labels_to_idx):
     EMBEDDING_DIM = 100
     HIDDEN_DIM = 50
     EPOCH = 100
-    # BATCH_SIZE = 2 will fix batch later on
+    BATCH_SIZE = 10 
     
     best_dev_acc = 0.0
 
-    model = lstm_classifier.LSTMClassifier(embedding_dim=EMBEDDING_DIM, 
-                                           hidden_dim=HIDDEN_DIM,
-                                           vocab_size=len(vocabulary_to_idx),
-                                           label_size=len(labels_to_idx))
+    model = lstm_classifier.LSTMClassifier(embedding_dim=EMBEDDING_DIM, hidden_dim=HIDDEN_DIM, vocab_size=len(vocabulary_to_idx), label_size=len(labels_to_idx),batch_size=BATCH_SIZE)
 
-    loss_function = nn.NLLLoss()
+    model.cuda() #EVA
+    loss_function = nn.BCELoss() #change to BCEloss? binary cross entropy
     optimizer = optim.Adam(model.parameters(), lr = 1e-3)
 
     updates = 0
@@ -79,9 +79,11 @@ def train(train_data, test_data, dev_data, vocabulary_to_idx, labels_to_idx):
             torch.save(model, 'models/best_model_minibatch_acc_' + str(int(test_acc*10000)) + '.model')
             updates = 0
         else:
-            updates += 1
+            updates += 1       # Early stopping criteria 
             if updates >= 10:
-                exit()
+                break          # stop loop (finishes after 10 updates, or if epochs are finished (100)
+    model.printEmbeddings()
+    exit()
 
 def train_epoch(model, train_data, loss_function, optimizer, vocabulary_to_idx, label_to_idx, i):
     #enable training mode
@@ -93,8 +95,10 @@ def train_epoch(model, train_data, loss_function, optimizer, vocabulary_to_idx, 
     pred_res = []
     batch_sent = []
 
-    for sent, label in train_data:
+    for batch in train_data:
+        sent, label = batch #EVA
         truth_res.append(label_to_idx[label])
+        model.batch_size = len(label.data) #EVA??
         # detaching it from its history on the last instance.
         model.hidden = model.init_hidden()
         sent = prepare_sequence(sent, vocabulary_to_idx)
