@@ -19,8 +19,7 @@ torch.set_num_threads(8)
 torch.manual_seed(1)
 random.seed(1)
 
-cudnn.benchmark = True
-torch.cuda.set_device(args.gpu)
+use_gpu = torch.cuda.is_available()
 
 def prepare_sequence(seq, to_idx):
     idxs = [to_idx[w] for w in seq]
@@ -36,14 +35,20 @@ def get_accuracy(truth, pred):
      return right/len(truth)
 
 def train(train_data, test_data, dev_data, vocabulary_to_idx, labels_to_idx):
+    
     EMBEDDING_DIM = 100
     HIDDEN_DIM = 50
-    EPOCH = 100
+    EPOCH = 10
     BATCH_SIZE = 10 
     
     best_dev_acc = 0.0
 
-    model = lstm_classifier.LSTMClassifier(embedding_dim=EMBEDDING_DIM, hidden_dim=HIDDEN_DIM, vocab_size=len(vocabulary_to_idx), label_size=len(labels_to_idx),batch_size=BATCH_SIZE)
+    model = lstm_classifier.LSTMClassifier(embedding_dim=EMBEDDING_DIM, 
+                   hidden_dim=HIDDEN_DIM,
+                   vocab_size=len(vocabulary_to_idx),
+                   label_size=len(labels_to_idx),
+                   batch_size=BATCH_SIZE,
+                   device=)
 
     model.cuda() #EVA
     loss_function = nn.BCELoss() #change to BCEloss? binary cross entropy
@@ -82,8 +87,6 @@ def train(train_data, test_data, dev_data, vocabulary_to_idx, labels_to_idx):
             updates += 1       # Early stopping criteria 
             if updates >= 10:
                 break          # stop loop (finishes after 10 updates, or if epochs are finished (100)
-    model.printEmbeddings()
-    exit()
 
 def train_epoch(model, train_data, loss_function, optimizer, vocabulary_to_idx, label_to_idx, i):
     #enable training mode
